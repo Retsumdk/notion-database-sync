@@ -1,0 +1,31 @@
+{
+  "name": "notion-database-sync",
+  "version": "1.0.0",
+  "description": "Synchronize Notion databases with external data sources (CSV, JSON, Google Sheets)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "notion-sync": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepublish": "npm run build"
+  },
+  "keywords": [
+    "notion",
+    "sync",
+    "csv",
+    "json",
+    "database"
+  ],
+  "author": "The BookMaster",
+  "license": "MIT",
+  "dependencies": {
+    "@notionhq/client": "^2.2.14",
+    "csv-parse": "^5.5.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.3"
+  }
+}
