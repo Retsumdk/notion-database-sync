@@ -95,7 +95,7 @@ export class NotionSync {
 
     return response.results.map((page: any) => {
       const row: Record<string, any> = {};
-      for (const [key, prop] of Object.entries(page.properties || {})) {
+      for (const [key, prop] of Object.entries(page.properties || {}) as [string, any][]) {
         if (prop.type === 'title' && prop.title?.[0]?.plain_text) {
           row[key] = prop.title[0].plain_text;
         } else if (prop.type === 'rich_text' && prop.rich_text?.[0]?.plain_text) {
