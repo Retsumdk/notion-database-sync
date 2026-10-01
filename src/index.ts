@@ -120,6 +120,120 @@ export class NotionSync {
     });
   }
 
+  async importJSON(options: {
+    databaseId: string;
+    sourcePath: string;
+    mapping?: Record<string, string>;
+  }): Promise<{ imported: number }> {
+    if (!this.notion) {
+      throw new Error('Notion token not configured');
+    }
+
+    const parsed = JSON.parse(fs.readFileSync(options.sourcePath, 'utf-8'));
+    if (!Array.isArray(parsed)) {
+      throw new Error('JSON source must be an array of objects');
+    }
+
+    let imported = 0;
+    for (const record of parsed) {
+      if (record === null || typeof record !== 'object' || Array.isArray(record)) {
+        throw new Error(`JSON record at index ${imported} is not an object`);
+      }
+      const properties: Record<string, any> = {};
+      for (const [column, notionProp] of Object.entries(options.mapping || {})) {
+        const value = (record as Record<string, any>)[column];
+        if (value === undefined || value === null || value === '') continue;
+        const stringValue = String(value);
+        switch (notionProp) {
+          case 'title':
+            properties[notionProp] = { title: [{ text: { content: stringValue } }] };
+            break;
+          case 'rich_text':
+            properties[notionProp] = { rich_text: [{ text: { content: stringValue } }] };
+            break;
+          case 'number':
+            properties[notionProp] = { number: parseFloat(stringValue) || 0 };
+            break;
+          case 'select':
+            properties[notionProp] = { select: { name: stringValue } };
+            break;
+          case 'multi_select':
+            properties[notionProp] = { multi_select: stringValue.split(',').map((s: string) => ({ name: s.trim() })) };
+            break;
+          case 'date':
+            properties[notionProp] = { date: { start: stringValue } };
+            break;
+          case 'checkbox':
+            properties[notionProp] = { checkbox: stringValue.toLowerCase() === 'true' };
+            break;
+          case 'email':
+            properties[notionProp] = { email: stringValue };
+            break;
+          case 'url':
+            properties[notionProp] = { url: stringValue };
+            break;
+          default:
+            properties[notionProp] = { rich_text: [{ text: { content: stringValue } }] };
+        }
+      }
+
+      await this.notion.pages.create({
+        parent: { database_id: options.databaseId },
+        properties
+      });
+      imported++;
+    }
+
+    return { imported };
+  }
+
+  async exportJSONAll(options: {
+    databaseId: string;
+    pageSize?: number;
+  }): Promise<any[]> {
+    if (!this.notion) {
+      throw new Error('Notion token not configured');
+    }
+
+    const rows: any[] = [];
+    let cursor: string | undefined = undefined;
+    do {
+      const response = await this.notion.databases.query({
+        database_id: options.databaseId,
+        page_size: options.pageSize,
+        start_cursor: cursor
+      });
+      for (const page of response.results as any[]) {
+        const row: Record<string, any> = {};
+        for (const [key, prop] of Object.entries(page.properties || {}) as [string, any][]) {
+          if (prop.type === 'title' && prop.title?.[0]?.plain_text) {
+            row[key] = prop.title[0].plain_text;
+          } else if (prop.type === 'rich_text' && prop.rich_text?.[0]?.plain_text) {
+            row[key] = prop.rich_text[0].plain_text;
+          } else if (prop.type === 'number') {
+            row[key] = prop.number;
+          } else if (prop.type === 'select') {
+            row[key] = prop.select?.name;
+          } else if (prop.type === 'multi_select') {
+            row[key] = prop.multi_select?.map((s: any) => s.name).join(', ');
+          } else if (prop.type === 'date') {
+            row[key] = prop.date?.start;
+          } else if (prop.type === 'checkbox') {
+            row[key] = prop.checkbox;
+          } else if (prop.type === 'email') {
+            row[key] = prop.email;
+          } else if (prop.type === 'url') {
+            row[key] = prop.url;
+          }
+        }
+        rows.push(row);
+      }
+      cursor = response.has_more ? response.next_cursor ?? undefined : undefined;
+    } while (cursor);
+
+    return rows;
+  }
+
   async listDatabases(): Promise<any[]> {
     if (!this.notion) {
       throw new Error('Notion token not configured');
