@@ -13,7 +13,7 @@ Synchronize Notion databases with external data sources (CSV, JSON, Google Sheet
 ## Installation
 
 ```bash
-npm install notion-database-sync
+npm install github:Retsumdk/notion-database-sync
 ```
 
 ## Usage
